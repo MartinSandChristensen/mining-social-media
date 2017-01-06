@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from json import loads, dumps
-import logging
+from logsetup import log
 import pika
 from requests import get, put
 
 COUCH_URL = 'http://couchdb:5984'
-
-log = logging.getLogger('couchfeeder')
 
 # Create the database if it doesn't already exist.
 res = put(COUCH_URL + '/raw_tweets')
@@ -26,7 +24,7 @@ def couchfeeder_callback(channel, method, properties, body):
     tweet = loads(body)
     res = put(COUCH_URL + '/raw_tweets/' + tweet['id_str'], data=body)
     if not res.status_code in (201, 409):
-        logging.error('Problem parsing tweet (' + res.text + '); data: ' + body)
+        log.error('Problem parsing tweet (' + res.text + '); data: ' + body)
 
 channel.basic_consume(couchfeeder_callback,
                       queue=queue_name,
