@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import json
+from json import loads, dumps
 from logsetup import log
 import os
 import pika
@@ -27,10 +27,14 @@ mq.exchange_declare(exchange='raw_tweet', type='fanout')
 # Define the Listener that will grab tweets from the Twitter stream.
 class Listener(tweepy.StreamListener):
     def on_data(self, raw_data):
-        data = json.loads(raw_data)
+        data = loads(raw_data)
         if 'in_reply_to_status_id' in data:
+            # The user part of the tweet is massive, so let's slim it down.
+            data['user'] = data['user']['id_str']
             try:
-                mq.basic_publish(exchange='raw_tweet', routing_key='', body=raw_data)
+                mq.basic_publish(exchange='raw_tweet',
+                                 routing_key='',
+                                 body=dumps(data))
             except Error, e:
                 log.error(e + '; choked on: ' + raw_data)
 

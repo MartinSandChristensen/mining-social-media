@@ -1,11 +1,6 @@
-FROM debian:8.6
+FROM pyservice
 
-RUN mkdir /srv
-WORKDIR /srv
-ADD ../logsetup.py .
-RUN apt-get update
-RUN apt-get -y --no-install-recommends install python-requests \
-    	       			       	       python-pika
+RUN apt-get -y --no-install-recommends install python-pika
 
 ADD couchfeeder.py .
 

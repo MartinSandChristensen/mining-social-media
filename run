@@ -1,16 +1,27 @@
-#!/bin/sh
+#!/bin/bash
+set -e
 
-source twitter.env
+if [ -f ./twitter.env ]; then
+    source twitter.env
+else
+    echo "Missing file twitter.env."
+    echo "See documentation at https://github.com/MartinSandChristensen/mining-social-media/blob/master/README.md"
+    exit 1
+fi
 
 sudo docker pull couchdb:1.6.1
 sudo docker pull rabbitmq:3.6.6
 
-(cd elasticfeeder; sudo docker build --tag=elasticfeeder . )
+(cd pyservice; sudo docker build --tag=pyservice . )
+(cd couchfeeder; sudo docker build --tag=couchfeeder . )
 (cd tweetparser; sudo docker build --tag=tweetparser . )
 (cd twitterfetcher; sudo docker build --tag=twitterfetcher . )
 
-sudo docker run -dP -v ./data/couchdb:/usr/local/var/lib/couchdb --name=couchdb couchdb
-sudo docker run -d --name=rabbitmq rabbitmq
-sudo docker run -d --name=elasticfeeder elasticfeeder
-sudo docker run -d --name=tweetparser tweetparser
-sudo docker run -d -e CONSUMER_KEY=$CONSUMER_KEY -e CONSUMER_SECRET=$CONSUMER_SECRET -e ACCESS_TOKEN=$ACCESS_TOKEN -e ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET -e TRACK=$TRACK --name=twitterfetcher twitterfetcher
+sudo docker volume create --name couchdb-store
+
+sudo docker run -dP --volume=couchdb-store:/usr/local/var/lib/couchdb --name=couchdb couchdb
+sudo docker run -dP --name=rabbitmq rabbitmq
+sleep 5
+sudo docker run -d --link=couchdb --link=rabbitmq --name=couchfeeder couchfeeder
+sudo docker run -d --link=rabbitmq --name=tweetparser tweetparser
+sudo docker run -d --link=rabbitmq -e CONSUMER_KEY=$CONSUMER_KEY -e CONSUMER_SECRET=$CONSUMER_SECRET -e ACCESS_TOKEN=$ACCESS_TOKEN -e ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET -e TRACK="$TRACK" --name=twitterfetcher twitterfetcher

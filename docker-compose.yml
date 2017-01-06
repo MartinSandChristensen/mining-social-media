@@ -2,9 +2,16 @@ version: '2'
 
 services:
 
+  pyservice:
+    build:
+      context: ./pyservice
+    container_name: pyservice
+
   couchdb:
     image: couchdb:1.6.1
     container_name: couchdb
+    volumes:
+      - data/couchdb:/usr/local/var/lib/couchdb
 
   rabbitmq:
     image: rabbitmq:3.6.6
