@@ -1,0 +1,16 @@
+#!/bin/sh
+
+source twitter.env
+
+sudo docker pull couchdb:1.6.1
+sudo docker pull rabbitmq:3.6.6
+
+(cd elasticfeeder; sudo docker build --tag=elasticfeeder . )
+(cd tweetparser; sudo docker build --tag=tweetparser . )
+(cd twitterfetcher; sudo docker build --tag=twitterfetcher . )
+
+sudo docker run -dP -v ./data/couchdb:/usr/local/var/lib/couchdb --name=couchdb couchdb
+sudo docker run -d --name=rabbitmq rabbitmq
+sudo docker run -d --name=elasticfeeder elasticfeeder
+sudo docker run -d --name=tweetparser tweetparser
+sudo docker run -d -e CONSUMER_KEY=$CONSUMER_KEY -e CONSUMER_SECRET=$CONSUMER_SECRET -e ACCESS_TOKEN=$ACCESS_TOKEN -e ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET -e TRACK=$TRACK --name=twitterfetcher twitterfetcher

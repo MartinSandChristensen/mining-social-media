@@ -1,0 +1,38 @@
+version: '2'
+
+services:
+
+  couchdb:
+    image: couchdb:1.6.1
+    container_name: couchdb
+
+  rabbitmq:
+    image: rabbitmq:3.6.6
+
+  tweetparser:
+    build:
+      context: ./tweetparser
+    container_name: tweetparser
+    depends_on:
+      - rabbitmq
+
+  couchdbfeeder:
+    build:
+      context: ./couchdbfeeder
+    container_name: couchdbfeeder
+    depends_on:
+      - rabbitmq
+      - couchdb
+
+  twitterfetcher:
+    build:
+      context: ./twitterfetcher
+    container_name: twitterfetcher
+    depends_on:
+      - rabbitmq
+    env_file: twitter.env
+
+  memcachedb:
+    build:
+      context: ./memcachedb
+    container_name: memcachedb
