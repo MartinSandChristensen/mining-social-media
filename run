@@ -21,7 +21,7 @@ sudo docker volume create --name couchdb-store
 
 sudo docker run -dP --volume=couchdb-store:/usr/local/var/lib/couchdb --name=couchdb couchdb
 sudo docker run -dP --name=rabbitmq rabbitmq
-sleep 5
+sleep 5 # give RabbitMQ a chance to spin up.
 sudo docker run -d --link=couchdb --link=rabbitmq --name=couchfeeder couchfeeder
 sudo docker run -d --link=rabbitmq --name=tweetparser tweetparser
 sudo docker run -d --link=rabbitmq -e CONSUMER_KEY=$CONSUMER_KEY -e CONSUMER_SECRET=$CONSUMER_SECRET -e ACCESS_TOKEN=$ACCESS_TOKEN -e ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET -e TRACK="$TRACK" --name=twitterfetcher twitterfetcher
