@@ -4,7 +4,9 @@ from logsetup import log
 import os
 import pika
 import requests
+import signal
 import sys
+import time
 import tweepy
 
 
@@ -13,7 +15,7 @@ import tweepy
 envvars = {}
 for envvar in ('CONSUMER_KEY', 'CONSUMER_SECRET',
                'ACCESS_TOKEN', 'ACCESS_TOKEN_SECRET',
-                'TRACK'):
+               'TRACK'):
     val = os.getenv(envvar)
     if not val:
         sys.exit('Missing evironment variable ' + envvar)
@@ -24,13 +26,24 @@ for envvar in ('CONSUMER_KEY', 'CONSUMER_SECRET',
 mq = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq')).channel()
 mq.exchange_declare(exchange='raw_tweet', type='fanout')
 
+# In case of "docker stop twitterfetcher", call an end to festivities.
+stop_stream = False
+def sigterm_handler(signal, frame):
+    stop_stream = True # Let tweepy finish what it's doing.
+    time.sleep(1)
+    sys.exit(0)
+signal.signal(signal.SIGTERM, sigterm_handler)
+
 # Define the Listener that will grab tweets from the Twitter stream.
 class Listener(tweepy.StreamListener):
     def on_data(self, raw_data):
+        """Only handle tweets"""
+        # First, check if we should stop the stream.
+        if stop_stream:
+            return False
+
         data = loads(raw_data)
         if 'in_reply_to_status_id' in data:
-            # The user part of the tweet is massive, so let's slim it down.
-            data['user'] = data['user']['id_str']
             try:
                 mq.basic_publish(exchange='raw_tweet',
                                  routing_key='',

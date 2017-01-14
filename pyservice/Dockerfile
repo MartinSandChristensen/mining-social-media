@@ -1,4 +1,4 @@
-FROM debian:8.6
+FROM debian:jessie
 
 RUN mkdir /dockerservice
 WORKDIR /dockerservice

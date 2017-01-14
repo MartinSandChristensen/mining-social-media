@@ -3,7 +3,7 @@
 from json import loads, dumps
 from logsetup import log
 import pika
-from requests import get, put
+from requests import put
 
 COUCH_URL = 'http://couchdb:5984'
 
@@ -21,10 +21,11 @@ channel.queue_bind(exchange='raw_tweet', queue=queue_name)
 
 
 def couchfeeder_callback(channel, method, properties, body):
+    """When a message arrives on the queue, insert into CouchDB."""
     tweet = loads(body)
     res = put(COUCH_URL + '/raw_tweets/' + tweet['id_str'], data=body)
-    if not res.status_code in (201, 409):
-        log.error('Problem parsing tweet (' + res.text + '); data: ' + body)
+    if not res.status_code in (201, 409): # OK or conflict
+        log.error('Problem inserting tweet (' + res.text + '); data: ' + body)
 
 channel.basic_consume(couchfeeder_callback,
                       queue=queue_name,

@@ -9,8 +9,14 @@ else
     exit 1
 fi
 
-sudo docker pull couchdb:1.6.1
-sudo docker pull rabbitmq:3.6.6
+COUCHDB="klaemo/couchdb:2.0.0"
+RABBITMQ="rabbitmq:3.6.6"
+
+sudo docker pull $COUCHDB
+sudo docker pull $RABBITMQ
+
+sudo docker volume create --name couchdb-store
+sudo docker volume create --name tweet-filestream-store
 
 (cd pyservice; sudo docker build --tag=pyservice . )
 (cd couchfeeder; sudo docker build --tag=couchfeeder . )
@@ -18,12 +24,10 @@ sudo docker pull rabbitmq:3.6.6
 (cd tweetparser; sudo docker build --tag=tweetparser . )
 (cd twitterfetcher; sudo docker build --tag=twitterfetcher . )
 
-sudo docker volume create --name couchdb-store
-
-sudo docker run -dP --volume=couchdb-store:/usr/local/var/lib/couchdb --name=couchdb couchdb
-sudo docker run -dP --name=rabbitmq rabbitmq
+sudo docker run -dP --volume=couchdb-store:/opt/couchdb/data --name=couchdb $COUCHDB
+sudo docker run -dP --name=rabbitmq $RABBITMQ
 sleep 5 # give RabbitMQ a chance to spin up.
 sudo docker run -d --link=couchdb --link=rabbitmq --name=couchfeeder couchfeeder
-sudo docker run -d --link=rabbitmq --name=filestreamer filestreamer
+sudo docker run -d --link=rabbitmq -e TWEETS_PER_ARCHIVE=10000 --volume=tweet-filestream-store:/data --name=filestreamer filestreamer
 sudo docker run -d --link=rabbitmq --name=tweetparser tweetparser
 sudo docker run -d --link=rabbitmq -e CONSUMER_KEY=$CONSUMER_KEY -e CONSUMER_SECRET=$CONSUMER_SECRET -e ACCESS_TOKEN=$ACCESS_TOKEN -e ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET -e TRACK="$TRACK" --name=twitterfetcher twitterfetcher

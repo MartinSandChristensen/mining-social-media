@@ -5,6 +5,7 @@ from logsetup import log
 import nltk.tokenize
 import pika
 
+COPY_FIELDS = ['retweet_count', 'lang', 'created_at']
 
 # Set up RabbitMQ receiver and sender channels.
 rec_channel = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq')).channel()
@@ -19,19 +20,19 @@ send_channel.exchange_declare(exchange='parsed_tweet', type='fanout')
 # Define our tokenizer callback function. This is where the magic happens.
 tokenize = nltk.tokenize.TweetTokenizer().tokenize
 def parser_callback(channel, method, properties, body):
+    """Parse and tokenise tweets on the queue, then output to another queue."""
     try:
         body = loads(body)
         tweet = {}
         tweet['tokens'] = tokenize(body['text'])
-        tweet['retweet_count'] = body['retweet_count']
-        tweet['lang'] = body['lang']
-        tweet['created_at'] = body['created_at']
         tweet['user'] = body['user']['id_str']
+        for field in COPY_FIELDS:
+            tweet[field] = body[field]
         send_channel.basic_publish(exchange='parsed_tweet',
                                    routing_key='',
                                    body=dumps(tweet))
     except Exception, e:
-        log.error(repr(e) + '; choked on: ' + repr(body))
+        log.error(e.message + '; choked on: ' + repr(body))
 
 rec_channel.basic_consume(parser_callback,
                           queue=queue_name,
