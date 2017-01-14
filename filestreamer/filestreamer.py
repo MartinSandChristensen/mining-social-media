@@ -6,6 +6,9 @@ import pika
 import subprocess
 import uuid
 
+TWEETS_PER_ARCHIVE = int(os.getenv('TWEETS_PER_ARCHIVE'))
+if not TWEETS_PER_ARCHIVE:
+    sys.exit('Missing environment variable TWEETS_PER_ARCHIVE')
 
 # Set up RabbitMQ channel.
 channel = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq')).channel()
@@ -15,13 +18,19 @@ queue_name = q.method.queue
 channel.queue_bind(exchange='raw_tweet', queue=queue_name)
 
 
-def filestreamer_callback(channel, method, properties, body):
+def iterarchive():
+    """Iterator to allow us to write to the same file TWEETS_PER_ARCHIVE times in a row."""
     while True:
         filename = '/data/' + str(uuid.uuid4())
-        with archive as open(filename, 'w'):
-            for i in range(10000):
-                archive.write(body + '\n')
+        with open(filename, 'w') as archive:
+            for i in range(TWEETS_PER_ARCHIVE):
+                yield archive
         subprocess.call(['gzip', filename])
+get_archive = iterarchive().next
+
+def filestreamer_callback(channel, method, properties, body):
+    """When a message arrives on the queue, write it to an archive."""
+    get_archive().write(body + '\n')
 
 channel.basic_consume(filestreamer_callback,
                       queue=queue_name,
