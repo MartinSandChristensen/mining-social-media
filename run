@@ -1,9 +1,7 @@
 #!/bin/bash
 set -e
 
-if [ -f ./twitter.env ]; then
-    source twitter.env
-else
+if [ ! -f ./twitter.env ]; then
     echo "Missing file twitter.env."
     echo "See documentation at https://github.com/MartinSandChristensen/mining-social-media/blob/master/README.md"
     exit 1
@@ -30,4 +28,4 @@ sleep 5 # give RabbitMQ a chance to spin up.
 sudo docker run -d --link=couchdb --link=rabbitmq --name=couchfeeder couchfeeder
 sudo docker run -d --link=rabbitmq -e TWEETS_PER_ARCHIVE=10000 --volume=tweet-filestream-store:/data --name=filestreamer filestreamer
 sudo docker run -d --link=rabbitmq --name=tweetparser tweetparser
-sudo docker run -d --link=rabbitmq -e CONSUMER_KEY=$CONSUMER_KEY -e CONSUMER_SECRET=$CONSUMER_SECRET -e ACCESS_TOKEN=$ACCESS_TOKEN -e ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET -e TRACK="$TRACK" --name=twitterfetcher twitterfetcher
+sudo docker run -d --link=rabbitmq --env-file=twitter.env --name=twitterfetcher twitterfetcher

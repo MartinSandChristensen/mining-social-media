@@ -4,7 +4,7 @@ from logsetup import log
 import os
 import pika
 import requests
-import signal
+import stopservice
 import sys
 import time
 import tweepy
@@ -22,49 +22,53 @@ for envvar in ('CONSUMER_KEY', 'CONSUMER_SECRET',
     envvars[envvar] = val
 
 
-# Set up RabbitMQ connection.
-mq = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq')).channel()
-mq.exchange_declare(exchange='raw_tweet', type='fanout')
-
-# In case of "docker stop twitterfetcher", call an end to festivities.
-stop_stream = False
-def sigterm_handler(signal, frame):
-    stop_stream = True # Let tweepy finish what it's doing.
-    time.sleep(1)
-    sys.exit(0)
-signal.signal(signal.SIGTERM, sigterm_handler)
-
 # Define the Listener that will grab tweets from the Twitter stream.
 class Listener(tweepy.StreamListener):
+    def __init__(self, *args, **kwargs):
+        super(Listener, self).__init__(*args, **kwargs)
+        self.mq_connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        self.mq_channel = self.mq_connection.channel()
+        self.mq_channel.exchange_declare(exchange='raw_tweet', type='fanout')
+
     def on_data(self, raw_data):
         """Only handle tweets"""
         # First, check if we should stop the stream.
-        if stop_stream:
+        if stopservice.stop():
             return False
 
         data = loads(raw_data)
         if 'in_reply_to_status_id' in data:
             try:
-                mq.basic_publish(exchange='raw_tweet',
-                                 routing_key='',
-                                 body=dumps(data))
+                self.mq_channel.basic_publish(exchange='raw_tweet',
+                                              routing_key='',
+                                              body=dumps(data))
             except Exception as e:
                 log.error(e.message + '; choked on: ' + raw_data)
+
+
+log.info('Starting service.')
 
 # Set up Twitter connection.
 auth = tweepy.OAuthHandler(envvars['CONSUMER_KEY'], envvars['CONSUMER_SECRET'])
 auth.set_access_token(envvars['ACCESS_TOKEN'], envvars['ACCESS_TOKEN_SECRET'])
 
 INITIAL_BACKOFF = 1  # One second backoff to start with.
+MAX_BACKOFF = 5*60   # Stop backing off after 5 minutes.
 backoff = INITIAL_BACKOFF
-while not stop_stream:
+while not stopservice.stop():
     try:
         latest_con_attempt = time.time()
-        stream = tweepy.Stream(auth, Listener())
+        listener =  Listener()
+        stream = tweepy.Stream(auth, listener)
         stream.filter(track=eval(envvars['TRACK']))
     except Exception as e:
+        try:
+            listener.mq_channel.close()
+            listener.mq_connection.close()
+        except:
+            pass
         # Exponential backoff unless five minutes have passed since last attempt.
-        if (time.time() - latest_con_attempt) > 5*60:
+        if (time.time() - latest_con_attempt) > MAX_BACKOFF:
             backoff = INITIAL_BACKOFF
         else:
             backoff = backoff*2
