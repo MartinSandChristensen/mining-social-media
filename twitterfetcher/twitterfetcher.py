@@ -48,12 +48,26 @@ class Listener(tweepy.StreamListener):
                 mq.basic_publish(exchange='raw_tweet',
                                  routing_key='',
                                  body=dumps(data))
-            except Error, e:
-                log.error(e + '; choked on: ' + raw_data)
+            except Exception as e:
+                log.error(e.message + '; choked on: ' + raw_data)
 
 # Set up Twitter connection.
 auth = tweepy.OAuthHandler(envvars['CONSUMER_KEY'], envvars['CONSUMER_SECRET'])
 auth.set_access_token(envvars['ACCESS_TOKEN'], envvars['ACCESS_TOKEN_SECRET'])
 
-stream = tweepy.Stream(auth, Listener())
-stream.filter(track=eval(envvars['TRACK']))
+INITIAL_BACKOFF = 1  # One second backoff to start with.
+backoff = INITIAL_BACKOFF
+while not stop_stream:
+    try:
+        latest_con_attempt = time.time()
+        stream = tweepy.Stream(auth, Listener())
+        stream.filter(track=eval(envvars['TRACK']))
+    except Exception as e:
+        # Exponential backoff unless five minutes have passed since last attempt.
+        if (time.time() - latest_con_attempt) > 5*60:
+            backoff = INITIAL_BACKOFF
+        else:
+            backoff = backoff*2
+        log.error('Stream stopped, backing off for %d seconds; reason: %s' %
+                  (backoff, e.message))
+        time.sleep(backoff)
