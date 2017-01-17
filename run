@@ -24,7 +24,6 @@ sudo docker volume create --name tweet-filestream-store
 
 sudo docker run -dP --volume=couchdb-store:/opt/couchdb/data --name=couchdb $COUCHDB
 sudo docker run -dP --name=rabbitmq $RABBITMQ
-sleep 5 # give RabbitMQ a chance to spin up.
 sudo docker run -d --link=couchdb --link=rabbitmq --name=couchfeeder couchfeeder
 sudo docker run -d --link=rabbitmq -e TWEETS_PER_ARCHIVE=10000 --volume=tweet-filestream-store:/data --name=filestreamer filestreamer
 sudo docker run -d --link=rabbitmq --name=tweetparser tweetparser
