@@ -1,3 +1,4 @@
 *~
+*.pyc
 twitter.env
 data/couchdb/*
