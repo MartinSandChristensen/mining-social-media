@@ -46,23 +46,10 @@ widely used Linux distros, I'm not making it a priority.
 
 ## Containers
 
-couchdb
-  Runs our CouchDB data store.
-
-rabbitmq
-  Our message queue middleware instance.
-
-couchfeeder
-  This runs a service that takes raw tweets from a queue and feeds
-  them into CouchDB.
-
-tweetparser
-  Runs a service that grabs raw tweets from a queue, tokenises them
-  and puts them on another queue.
-
-tweetfetcher
-  This service grabs data from the Twitter stream.
-
-filestreamer
-  Store tweets in flat files, one tweet per line and in compressed
-  archives of, by default, 10,000 per file.
+- `couchdb`: Runs our CouchDB data store.
+- `rabbitmq`: Our message queue middleware instance.
+- `couchfeeder`: This runs a service that takes raw tweets from a queue and feeds them into CouchDB.
+- `tweetparser`: Runs a service that grabs raw tweets from a queue, tokenises them and puts them on another queue.
+- `tweetfetcher`: This service grabs data from the Twitter stream.
+- `filestreamer`: Store tweets in flat files, one tweet per line and in compressed archives of, by default, 10,000 per file.
+- `memcachedb`: MemcacheDB service, not integrated yet.
