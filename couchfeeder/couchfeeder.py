@@ -2,8 +2,9 @@
 
 from json import loads, dumps
 from logsetup import log
-import pika
+import mq
 from requests import put
+import stopservice
 
 COUCH_URL = 'http://couchdb:5984'
 
@@ -12,22 +13,18 @@ res = put(COUCH_URL + '/raw_tweets')
 if not res.status_code in (201, 412): # OK or already exists
     raise Exception('Error creating database: ' + res.text)
 
-# Set up RabbitMQ channel.
-channel = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq')).channel()
-channel.exchange_declare(exchange='raw_tweet', type='fanout')
-q = channel.queue_declare(exclusive=True)
-queue_name = q.method.queue
-channel.queue_bind(exchange='raw_tweet', queue=queue_name)
 
+with mq.channel() as channel:
+    channel.exchange_declare(exchange='raw_tweet', type='fanout')
+    q = channel.queue_declare(exclusive=True)
+    queue_name = q.method.queue
+    channel.queue_bind(exchange='raw_tweet', queue=queue_name)
 
-def couchfeeder_callback(channel, method, properties, body):
-    """When a message arrives on the queue, insert into CouchDB."""
-    tweet = loads(body)
-    res = put(COUCH_URL + '/raw_tweets/' + tweet['id_str'], data=body)
-    if not res.status_code in (201, 409): # OK or conflict
-        log.error('Problem inserting tweet (' + res.text + '); data: ' + body)
-
-channel.basic_consume(couchfeeder_callback,
-                      queue=queue_name,
-                      no_ack=True)
-channel.start_consuming()
+    for method_frame, properties, body in channel.consume(queue_name):
+        tweet = loads(body)
+        res = put(COUCH_URL + '/raw_tweets/' + tweet['id_str'], data=body)
+        if not res.status_code in (201, 409): # OK or conflict
+            log.error('Problem inserting tweet (' + res.text + '); data: ' + body)
+        channel.basic_ack(method_frame.delivery_tag)
+        if stopservice.stop():
+            break
