@@ -8,6 +8,8 @@ an CouchDB database, and the second is a tweet parser. The parser then
 sends the parsed message to a new message queue, and from there it
 will be consumed by a classification service.
 
+Be warned that it's a work in progress.
+
 
 ## How to run
 
@@ -37,6 +39,10 @@ Now you should be able to execute the run file from the shell. This
 will create the required Docker images and spin up containers. After
 the first time, you should start the containers you want by hand.
 
+Why not Docker Compose? Well, it's sort of on its way, I think, but
+since it's not supported on even newer versions on several of the more
+widely used Linux distros, I'm not making it a priority.
+
 
 ## Containers
 
@@ -57,3 +63,6 @@ tweetparser
 tweetfetcher
   This service grabs data from the Twitter stream.
 
+filestreamer
+  Store tweets in flat files, one tweet per line and in compressed
+  archives of, by default, 10,000 per file.
